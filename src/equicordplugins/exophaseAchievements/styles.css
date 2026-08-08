@@ -1,0 +1,331 @@
+/* Defensive Reset for Exophase Images */
+[class^="vc-exophase-"] img,
+.vc-exophase-container img {
+    max-width: 100%;
+    object-fit: cover;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+/* Full Profile Tab Container */
+.vc-exophase-container {
+    padding: 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    color: var(--text-default);
+    font-family: var(--font-primary);
+    box-sizing: border-box;
+}
+
+/* Vertical Scrollbar */
+.vc-exophase-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.vc-exophase-container::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+
+.vc-exophase-container::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thin-thumb);
+    border-radius: 4px;
+}
+
+/* Stats Header */
+.vc-exophase-stats-bar {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.vc-exophase-stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.vc-exophase-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.vc-exophase-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--header-primary);
+}
+
+/* Subtabs Navigation & Horizontal Scrollbar */
+.vc-exophase-subtabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thin-thumb) var(--scrollbar-thin-track, transparent);
+}
+
+.vc-exophase-subtabs::-webkit-scrollbar {
+    height: 6px;
+}
+
+.vc-exophase-subtabs::-webkit-scrollbar-track {
+    background-color: var(--scrollbar-thin-track, transparent);
+    border-radius: 3px;
+}
+
+.vc-exophase-subtabs::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thin-thumb);
+    border-radius: 3px;
+}
+
+/* Subtab Pills */
+.vc-exophase-subtab {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm, 8px);
+    background-color: var(--card-background-default);
+    border: 1px solid var(--border-subtle);
+    color: var(--interactive-icon-default);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.vc-exophase-subtab:hover {
+    background-color: var(--background-mod-subtle);
+    color: var(--interactive-icon-active);
+}
+
+.vc-exophase-subtab-active,
+.vc-exophase-subtab-active:hover {
+    background-color: var(--brand-500) !important;
+    color: #ffffff !important;
+    border-color: var(--brand-500) !important;
+}
+
+/* Section Headers */
+.vc-exophase-section-header {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--header-secondary);
+    margin-bottom: 8px;
+    margin-top: 4px;
+}
+
+/* Discord Connection Header Card */
+.vc-exophase-connection-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm, 8px);
+    margin-top: 18px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: var(--text-normal);
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.vc-exophase-connection-card:hover {
+    background-color: var(--background-secondary-alt);
+    border-color: var(--interactive-hover);
+}
+
+.vc-exophase-connection-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.vc-exophase-connection-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--header-primary);
+}
+
+.vc-exophase-connection-user {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Game Header Divider */
+.vc-exophase-game-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--header-secondary);
+    margin: 12px 0 6px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vc-exophase-game-count {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+/* Tab Badge Grids */
+.vc-exophase-badge-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+/* Badge Icons Strict Sizing (Full Profile) */
+img.vc-exophase-badge-item,
+.vc-exophase-badge-item {
+    width: 36px !important;
+    height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    border-radius: 6px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+    transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+img.vc-exophase-badge-item:hover,
+.vc-exophase-badge-item:hover {
+    transform: scale(1.12);
+    border-color: var(--brand-500);
+    filter: brightness(1.1);
+}
+
+/* Mini Profile / Popout Specific Scoping */
+.vc-exophase-popout,
+.vc-exophase-mini-profile {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vc-exophase-popout img.vc-exophase-badge-item,
+.vc-exophase-mini-profile img.vc-exophase-badge-item,
+.vc-exophase-popout .vc-exophase-badge-item,
+.vc-exophase-mini-profile .vc-exophase-badge-item {
+    width: 24px !important;
+    height: 24px !important;
+    max-width: 24px !important;
+    max-height: 24px !important;
+    border-radius: 4px;
+}
+
+/* Detailed Card Icons */
+.vc-exophase-list-detailed {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vc-exophase-card-detailed {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background-color: var(--card-background-default);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.vc-exophase-card-detailed:hover {
+    background-color: var(--background-mod-subtle);
+    border-color: var(--interactive-icon-default);
+}
+
+img.vc-exophase-card-icon-detailed,
+.vc-exophase-card-icon-detailed {
+    width: 48px !important;
+    height: 48px !important;
+    max-width: 48px !important;
+    max-height: 48px !important;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.vc-exophase-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.vc-exophase-subtitle {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+    display: block;
+}
+
+.vc-exophase-title {
+    color: var(--text-default) !important;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 18px;
+    margin: 0;
+}
+
+.vc-exophase-description {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 16px;
+}
+
+.vc-exophase-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.vc-exophase-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.vc-exophase-rarity-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: var(--brand-500);
+    color: #ffffff;
+}
+
+.vc-exophase-meta {
+    color: var(--text-muted) !important;
+    font-size: 12px;
+    line-height: 16px;
+    margin: 0;
+}
+
+.vc-exophase-icon {
+    color: var(--interactive-icon-default);
+    flex-shrink: 0;
+    align-self: center;
+}
