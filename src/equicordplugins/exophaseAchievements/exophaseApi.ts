@@ -1,14 +1,10 @@
-/*
- * Vencord, a Discord client mod
- * Copyright (c) 2026 Vendicated and contributors
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
 import { Logger } from "@utils/Logger";
 
+import { describeFetchFailure } from "./netUtils";
 import { ExophaseAchievement, ExophaseSummary } from "./types";
 
-const API_BASE = "https://exophaseapi.vercel.app/api/v1";
+const API_HOST = "exophaseapi.vercel.app";
+const API_BASE = `https://${API_HOST}/api/v1`;
 const logger = new Logger("ExophaseAchievements");
 
 export function getExophaseProfileUrl(username: string) {
@@ -16,7 +12,15 @@ export function getExophaseProfileUrl(username: string) {
 }
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, { signal });
+    const startedAt = Date.now();
+
+    let response: Response;
+    try {
+        response = await fetch(`${API_BASE}${path}`, { signal });
+    } catch (error) {
+        if ((error as Error)?.name === "AbortError") throw error;
+        throw new Error(describeFetchFailure(error, startedAt, API_HOST));
+    }
 
     if (!response.ok) {
         throw new Error(`Exophase API request failed (HTTP ${response.status})`);
@@ -26,17 +30,24 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 /**
- * Fetches the full achievement list for a user. The API's response shape isn't
- * consistent between endpoints, so this normalises it down to a plain array
- * either way.
+ * Fetches the achievement list for a user, optionally scoped to a single platform.
+ * The API's response shape isn't consistent between endpoints, so this normalises
+ * it down to a plain array either way.
  */
-export async function fetchAchievements(username: string, signal?: AbortSignal): Promise<ExophaseAchievement[]> {
-    const data = await get<ExophaseAchievement[] | { achievements?: ExophaseAchievement[]; }>(
-        `/user/${encodeURIComponent(username)}/achievements`,
-        signal
-    );
+export async function fetchAchievements(username: string, platform?: string, signal?: AbortSignal): Promise<ExophaseAchievement[]> {
+    const query = platform && platform !== "All" ? `?platform=${encodeURIComponent(platform.toLowerCase())}` : "";
+    try {
+        const data = await get<ExophaseAchievement[] | { achievements?: ExophaseAchievement[]; }>(
+            `/user/${encodeURIComponent(username)}/achievements${query}`,
+            signal
+        );
 
-    return Array.isArray(data) ? data : (data.achievements ?? []);
+        return Array.isArray(data) ? data : (data?.achievements ?? []);
+    } catch (error) {
+        if ((error as Error)?.name === "AbortError") throw error;
+        logger.error("Failed to fetch achievements:", error);
+        throw error;
+    }
 }
 
 /**

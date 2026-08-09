@@ -1,22 +1,14 @@
-/*
- * Vencord, a Discord client mod
- * Copyright (c) 2026 Vendicated and contributors
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
 import { Logger } from "@utils/Logger";
+import { moment, React, Tooltip, useEffect, useMemo, useState, UserStore } from "@webpack/common";
 import { User } from "@vencord/discord-types";
-import { moment, React, Tooltip, useEffect, useMemo, UserStore,useState } from "@webpack/common";
 
 import { fetchAchievements, fetchSummary, getExophaseProfileUrl, sortByRecency } from "../exophaseApi";
 import { settings } from "../index";
 import { ExophaseAchievement, ExophaseSummary } from "../types";
-import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "../verificationCache";
 import { ExophaseCard } from "./ExophaseCard";
 import { ExophaseSubTabs } from "./ExophaseSubTabs";
 
 const logger = new Logger("ExophaseAchievements");
-const USERNAME_SETTING: "exophaseUsername"[] = ["exophaseUsername"];
 
 interface ProfileTabProps {
     user: User;
@@ -50,16 +42,10 @@ function groupByPlatformAndGame(achievements: ExophaseAchievement[]): GamesByPla
 
 export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
     const own = user.id === UserStore.getCurrentUser()?.id;
-    const { exophaseUsername } = settings.use(USERNAME_SETTING);
 
-    // Own profile: use the locally configured username directly. Anyone
-    // else's profile: only show achievements for an Exophase account that's
-    // been proven theirs via ExophaseVerify (see verifyApi.ts). This should
-    // already be warm in the cache by the time this tab is actually visible,
-    // since the plugin only injects the tab button once shouldShowExophaseTab
-    // (index.tsx) has confirmed verification - but we still fall back to a
-    // fresh fetch defensively.
-    const [username, setUsername] = useState<string | null>(own ? (exophaseUsername || null) : null);
+    // Own profile only for now - achievements on other people's profiles
+    // depend on verification, which has been pulled out.
+    const [username] = useState<string | null>(own ? (settings.store.exophaseUsername || null) : null);
 
     // Always the *full*, unfiltered achievement list for this user - platform
     // filtering happens entirely client-side below (see `activeAchievements`).
@@ -75,26 +61,6 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
     const [activePlatform, setActivePlatform] = useState("All");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (own) {
-            setUsername(exophaseUsername || null);
-            return;
-        }
-
-        const cached = getCachedVerification(user.id);
-        if (cached !== undefined) {
-            setUsername(cached?.verified && !cached.hiddenSections.includes(SECTION_IDS.TAB) ? cached.exophaseUsername : null);
-            return;
-        }
-
-        let cancelled = false;
-        ensureVerificationCached(user.id).then(info => {
-            if (cancelled) return;
-            setUsername(info?.verified && !info.hiddenSections.includes(SECTION_IDS.TAB) ? info.exophaseUsername : null);
-        });
-        return () => { cancelled = true; };
-    }, [user.id, own, exophaseUsername]);
 
     useEffect(() => {
         // Reset the platform filter whenever we switch to looking at a
@@ -115,7 +81,7 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
         setError(null);
 
         Promise.all([
-            fetchAchievements(username, controller.signal),
+            fetchAchievements(username, undefined, controller.signal),
             fetchSummary(username, controller.signal),
         ])
             .then(([achievementList, summaryData]) => {
@@ -156,7 +122,7 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
                 <p className="vc-exophase-meta">
                     {own
                         ? `Set your Exophase username in the plugin settings to see your ${tabLabel.toLowerCase()} here.`
-                        : "This user hasn't verified an Exophase account yet."}
+                        : `${tabLabel} are only shown on your own profile for now.`}
                 </p>
             </div>
         );

@@ -1,32 +1,22 @@
-/*
- * Vencord, a Discord client mod
- * Copyright (c) 2026 Vendicated and contributors
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
 import "./styles.css";
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { EquicordDevs } from "@utils/constants";
-import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { UserStore } from "@webpack/common";
 
 import { ProfilePopoutComponent } from "./components/ProfilePopoutComponent";
 import { ProfileTabComponent } from "./components/ProfileTabComponent";
-import { VerifySettings } from "./components/VerifySettings";
-import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "./verificationCache";
 
 const TAB_SECTION_ID = "EXOPHASE";
 const DEFAULT_TAB_NAME = "Achievements";
-const logger = new Logger("ExophaseAchievements");
 
 export const settings = definePluginSettings({
     exophaseUsername: {
         type: OptionType.STRING,
-        description: "Your Exophase username. Used to show your own achievements on your own profile, and as the username submitted when you verify below.",
+        description: "Your Exophase username. Used to show your own achievements on your own profile.",
         default: "",
     },
     tabName: {
@@ -39,14 +29,9 @@ export const settings = definePluginSettings({
             { label: "Pins", value: "Pins" },
         ],
     },
-    verify: {
-        type: OptionType.COMPONENT,
-        description: "Verify your Exophase account so your achievements can show up on your profile for other people too (not just you)",
-        component: VerifySettings,
-    },
 });
 
-function getTabLabel() {
+export function getTabLabel() {
     return settings.store.tabName || DEFAULT_TAB_NAME;
 }
 
@@ -56,10 +41,12 @@ function isOwnProfile(userId?: string) {
 
 export default definePlugin({
     name: "ExophaseAchievements",
-    description: "Shows Exophase game achievements on Discord profiles - your own always, and other verified users' too.",
+    // NOTE: verification (showing achievements on *other* people's profiles)
+    // has been pulled out for now - this only ever shows your own achievements
+    // on your own profile until that comes back.
+    description: "Shows your Exophase game achievements on your own Discord profile.",
     tags: ["Activity", "Fun"],
     authors: [EquicordDevs.Aaronateataco],
-    dependencies: ["ProfileCollectionsAPI"],
     settings,
 
     patches: [
@@ -79,62 +66,51 @@ export default definePlugin({
                 match: /(\i)===\i\.\i\.WISHLIST/,
                 replace: `$1==="${TAB_SECTION_ID}"?$self.renderExophaseTab(arguments[0]):$&`,
             }
+        },
+        // 3. Adds a small "recent achievements" card to the profile popout (the
+        // hover-card you get from clicking someone's avatar).
+        //
+        // This still injects at the *start* of that panel's children array,
+        // same as before - there's no reliable, version-proof way from here
+        // to splice in specifically "after About Me" by matching on the
+        // minified source, since we can't see what that first child's own
+        // source looks like at patch time. Instead, ProfilePopoutComponent
+        // gives its card an explicit CSS `order` (see .vc-exophase-popout in
+        // styles.css) so it visually sorts itself after Discord's own
+        // (unordered, i.e. order:0) sections. Other plugins that also inject
+        // unordered cards here will still land wherever the array puts them -
+        // if "above other plugin buttons" doesn't hold on your setup, bump
+        // that order value up or down to taste.
+        {
+            find: "UserProfilePopout",
+            replacement: {
+                match: /\{profileType:(\i)\.(\i)\.PANEL,children:\[/,
+                replace: "{profileType:$1.$2.PANEL,children:[$self.renderProfilePopoutCard(arguments[0]),",
+            }
         }
     ],
 
-    // The tab-bar patch below needs a synchronous answer, so warm the
-    // verification cache as soon as a profile is opened rather than on the
-    // render that needs it.
-    flux: {
-        USER_PROFILE_MODAL_OPEN({ userId }: { userId: string; }) {
-            ensureVerificationCached(userId);
-        },
-    },
-
     getTabLabel,
 
-    // Own profile: gated purely on the local setting, same as before - no
-    // network round trip needed to see your own stuff.
-    // Someone else's profile: gated on the verification cache, since we can
-    // only legitimately show achievements for people who've proven the
-    // Exophase account is theirs via ExophaseVerify. A cache miss kicks off a
-    // background fetch (see verificationCache.ts) and shows nothing this
-    // time around.
+    // Gated purely on the local setting - no verification, no network round
+    // trip, and (for now) no achievements shown on anyone else's profile.
     // NOTE: this runs *inline* inside Discord's own tab-bar render function
     // (see patch #1) - there is no ErrorBoundary around this call the way
-    // there is for renderExophaseTab below, so an
+    // there is for renderProfilePopoutCard/renderExophaseTab below, so an
     // uncaught throw here doesn't just blank out our own UI, it blows up
     // whatever Discord component is rendering the profile at the time. Keep
     // this bulletproof: always resolve to a boolean, never throw.
     shouldShowExophaseTab(userId?: string) {
         try {
-            if (!userId) return false;
-
-            if (isOwnProfile(userId)) {
-                return !!settings.store.exophaseUsername;
-            }
-
-            const cached = getCachedVerification(userId);
-            if (cached === undefined) {
-                ensureVerificationCached(userId);
-                return false;
-            }
-
-            return !!cached?.verified && !cached.hiddenSections.includes(SECTION_IDS.TAB);
-        } catch (error) {
-            logger.error("shouldShowExophaseTab threw, hiding tab for this render:", error);
+            return isOwnProfile(userId) && !!settings.store.exophaseUsername;
+        } catch {
             return false;
         }
     },
 
-    // Adds a small "recent achievements" card to the profile popout, next to
-    // Discord's own connection/activity cards.
-    renderProfileCollection: {
-        render: (props: { user: User; isSideBar: boolean; }) => (
-            <ProfilePopoutComponent user={props.user} isSideBar={props.isSideBar} />
-        ),
-        priority: 0,
-    },
+    renderProfilePopoutCard: ErrorBoundary.wrap((props: { user: User; }) => {
+        return <ProfilePopoutComponent user={props.user} />;
+    }, { noop: true }),
 
     renderExophaseTab: ErrorBoundary.wrap((props: { user: User; }) => {
         return <ProfileTabComponent user={props.user} tabLabel={getTabLabel()} />;

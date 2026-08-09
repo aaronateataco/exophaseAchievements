@@ -115,7 +115,7 @@
 .vc-exophase-subtab-active,
 .vc-exophase-subtab-active:hover {
     background-color: var(--brand-500);
-    color: #fff;
+    color: #ffffff;
     border-color: var(--brand-500);
 }
 
@@ -171,7 +171,7 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--header-secondary);
-    margin: 12px 0 6px;
+    margin: 12px 0 6px 0;
     padding-bottom: 4px;
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
@@ -199,6 +199,14 @@
     gap: 8px;
 }
 
+.vc-exophase-latest-grid .vc-exophase-badge-item {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: 1;
+}
+
 .vc-exophase-badge-item {
     width: 36px;
     height: 36px;
@@ -212,40 +220,22 @@
     transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
 }
 
-.vc-exophase-latest-grid .vc-exophase-badge-item {
-    width: 100%;
-    height: auto;
-    max-width: none;
-    max-height: none;
-    aspect-ratio: 1;
-}
-
 .vc-exophase-badge-item:hover {
     transform: scale(1.12);
     border-color: var(--brand-500);
     filter: brightness(1.1);
 }
 
-/* Profile popout card */
+/* Profile popout card. `order` pushes this after Discord's own sections in
+   that panel (About Me, connections, etc. don't set an explicit order, so
+   they default to 0 and sort first). Bump this number if it needs to land
+   somewhere different relative to other plugins' cards on your setup. */
 .vc-exophase-popout {
     padding: 8px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-.vc-exophase-mini-badges {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 6px;
-}
-
-.vc-exophase-popout .vc-exophase-badge-item {
-    width: 24px;
-    height: 24px;
-    max-width: 24px;
-    max-height: 24px;
-    border-radius: 4px;
+    order: 1;
 }
 
 /* Per-platform detailed list */
@@ -340,7 +330,7 @@
     padding: 2px 6px;
     border-radius: 4px;
     background-color: var(--brand-500);
-    color: #fff;
+    color: #ffffff;
 }
 
 .vc-exophase-meta {
@@ -355,53 +345,3 @@
     flex-shrink: 0;
     align-self: center;
 }
-
-/* Settings-panel verification UI */
-.vc-exophase-verify-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 4px 0;
-}
-
-.vc-exophase-verify-status {
-    margin: 0;
-    font-size: 13px;
-    line-height: 18px;
-    color: var(--text-default);
-}
-
-.vc-exophase-verify-status-ok {
-    color: var(--text-positive);
-}
-
-.vc-exophase-verify-status-error {
-    color: var(--text-danger);
-}
-
-.vc-exophase-verify-meta {
-    margin: 0;
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-.vc-exophase-verify-sections {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.vc-exophase-verify-section-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-default);
-    cursor: pointer;
-}
-
-.vc-exophase-verify-actions {
-    display: flex;
-    gap: 8px;
-}
-

@@ -1,10 +1,4 @@
 /*
- * Vencord, a Discord client mod
- * Copyright (c) 2026 Vendicated and contributors
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
-/*
  * The Exophase API isn't officially documented, so several fields below are
  * "best guess" aliases (e.g. name/title, icon/icon_url) covering the shapes
  * that have actually been observed in responses. Every consumer should read
