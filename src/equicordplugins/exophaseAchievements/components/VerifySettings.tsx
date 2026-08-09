@@ -6,7 +6,7 @@
 
 import { FormSwitch } from "@components/FormSwitch";
 import { Logger } from "@utils/Logger";
-import { Button, React, TextInput, useEffect, useRef, UserStore,useState } from "@webpack/common";
+import { Button, React, useEffect, useRef, UserStore, useState } from "@webpack/common";
 
 import { settings } from "../index";
 import { invalidateVerification, SECTION_IDS } from "../verificationCache";
@@ -34,9 +34,6 @@ export function VerifySettings() {
     const [flow, setFlow] = useState<FlowState>({ phase: "idle" });
     const [hiddenSections, setHiddenSections] = useState<string[]>([]);
     const [savingSection, setSavingSection] = useState<string | null>(null);
-    // Verifying is self contained: type a username here, hit verify, done.
-    // This is the same value as the username setting above, so editing either
-    // one updates the other.
     const { exophaseUsername } = settings.use(USERNAME_SETTING);
     const verifyFlow = useRef<{ cancel(): void; } | null>(null);
 
@@ -150,18 +147,6 @@ export function VerifySettings() {
 
     return (
         <div className="vc-exophase-verify-panel">
-            <div className="vc-exophase-verify-username-row">
-                <label className="vc-exophase-verify-username-label" htmlFor="vc-exophase-username-input">
-                    Exophase username
-                </label>
-                <TextInput
-                    id="vc-exophase-username-input"
-                    value={exophaseUsername}
-                    onChange={value => settings.store.exophaseUsername = value}
-                    placeholder="e.g. FoxStorm1"
-                />
-            </div>
-
             {local ? (
                 <>
                     <p className="vc-exophase-verify-status vc-exophase-verify-status-ok">
@@ -203,6 +188,9 @@ export function VerifySettings() {
                         Discord connections against it), so your achievements can appear on your profile for other
                         people running this plugin - not just for you.
                     </p>
+                    {!exophaseUsername.trim() && (
+                        <p className="vc-exophase-verify-meta">Fill in your Exophase username above first.</p>
+                    )}
                     <Button
                         size={Button.Sizes.SMALL}
                         onClick={handleVerify}

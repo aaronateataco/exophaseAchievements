@@ -405,15 +405,3 @@
     gap: 8px;
 }
 
-.vc-exophase-verify-username-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.vc-exophase-verify-username-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--header-secondary);
-    text-transform: uppercase;
-}
