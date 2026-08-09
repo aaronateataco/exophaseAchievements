@@ -1,12 +1,20 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import { FormSwitch } from "@components/FormSwitch";
 import { Logger } from "@utils/Logger";
-import { Button, React, TextInput, useEffect, useState, UserStore } from "@webpack/common";
+import { Button, React, TextInput, useEffect, useRef, UserStore,useState } from "@webpack/common";
 
 import { settings } from "../index";
-import { SECTION_IDS } from "../verificationCache";
-import { clearLocalVerification, getLocalVerification, LocalVerification, setLocalVerification } from "../verifyStore";
+import { invalidateVerification, SECTION_IDS } from "../verificationCache";
 import { fetchUserVerification, startVerifyFlow, updateHiddenSections, VerifyPollResult } from "../verifyApi";
+import { clearLocalVerification, getLocalVerification, LocalVerification, setLocalVerification } from "../verifyStore";
 
 const logger = new Logger("ExophaseAchievements");
+const USERNAME_SETTING: "exophaseUsername"[] = ["exophaseUsername"];
 
 const SECTION_LABELS: Record<string, string> = {
     [SECTION_IDS.TAB]: "Achievements tab on my full profile",
@@ -26,18 +34,13 @@ export function VerifySettings() {
     const [flow, setFlow] = useState<FlowState>({ phase: "idle" });
     const [hiddenSections, setHiddenSections] = useState<string[]>([]);
     const [savingSection, setSavingSection] = useState<string | null>(null);
-    // Auth needs somewhere for people to actually type their username - it
-    // used to only read settings.store.exophaseUsername, which meant nothing
-    // happened if that separate field above hadn't already been filled in.
-    // This mirrors that setting (and writes back to it on every keystroke,
-    // same as a normal settings TextInput would) so verifying is self
-    // contained: type a username here, hit verify, done.
-    const [usernameInput, setUsernameInput] = useState(settings.store.exophaseUsername ?? "");
+    // Verifying is self contained: type a username here, hit verify, done.
+    // This is the same value as the username setting above, so editing either
+    // one updates the other.
+    const { exophaseUsername } = settings.use(USERNAME_SETTING);
+    const verifyFlow = useRef<{ cancel(): void; } | null>(null);
 
-    const handleUsernameChange = (value: string) => {
-        setUsernameInput(value);
-        settings.store.exophaseUsername = value;
-    };
+    useEffect(() => () => verifyFlow.current?.cancel(), []);
 
     // Load whatever we already verified in a previous session.
     useEffect(() => {
@@ -71,7 +74,7 @@ export function VerifySettings() {
     }, [local?.discordId]);
 
     const handleVerify = () => {
-        const username = usernameInput.trim();
+        const username = exophaseUsername.trim();
         if (!username) {
             setFlow({ phase: "error", message: "Enter your Exophase username first." });
             return;
@@ -80,7 +83,7 @@ export function VerifySettings() {
 
         setFlow({ phase: "pending" });
 
-        startVerifyFlow(username, {
+        verifyFlow.current = startVerifyFlow(username, {
             onPending: () => setFlow(prev => (prev.phase === "pending" ? prev : { phase: "pending" })),
             onSuccess: async result => {
                 const currentId = UserStore.getCurrentUser()?.id;
@@ -98,6 +101,7 @@ export function VerifySettings() {
                 };
 
                 await setLocalVerification(record);
+                invalidateVerification(currentId);
                 setLocal(record);
                 setFlow({ phase: "idle" });
             },
@@ -111,6 +115,7 @@ export function VerifySettings() {
     };
 
     const handleClear = async () => {
+        verifyFlow.current?.cancel();
         await clearLocalVerification();
         setLocal(null);
         setHiddenSections([]);
@@ -151,8 +156,8 @@ export function VerifySettings() {
                 </label>
                 <TextInput
                     id="vc-exophase-username-input"
-                    value={usernameInput}
-                    onChange={handleUsernameChange}
+                    value={exophaseUsername}
+                    onChange={value => settings.store.exophaseUsername = value}
                     placeholder="e.g. FoxStorm1"
                 />
             </div>
@@ -167,15 +172,14 @@ export function VerifySettings() {
 
                     <div className="vc-exophase-verify-sections">
                         {Object.entries(SECTION_LABELS).map(([id, label]) => (
-                            <label key={id} className="vc-exophase-verify-section-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={!hiddenSections.includes(id)}
-                                    disabled={savingSection === id}
-                                    onChange={() => toggleSection(id)}
-                                />
-                                Show {label} to others
-                            </label>
+                            <FormSwitch
+                                key={id}
+                                title={`Show ${label} to others`}
+                                value={!hiddenSections.includes(id)}
+                                disabled={savingSection === id}
+                                onChange={() => toggleSection(id)}
+                                hideBorder
+                            />
                         ))}
                     </div>
 
@@ -183,7 +187,7 @@ export function VerifySettings() {
                         <Button
                             size={Button.Sizes.SMALL}
                             onClick={handleVerify}
-                            disabled={flow.phase === "pending" || !usernameInput.trim()}
+                            disabled={flow.phase === "pending" || !exophaseUsername.trim()}
                         >
                             {flow.phase === "pending" ? "Waiting for Discord..." : "Re-verify"}
                         </Button>
@@ -202,7 +206,7 @@ export function VerifySettings() {
                     <Button
                         size={Button.Sizes.SMALL}
                         onClick={handleVerify}
-                        disabled={flow.phase === "pending" || !usernameInput.trim()}
+                        disabled={flow.phase === "pending" || !exophaseUsername.trim()}
                     >
                         {flow.phase === "pending" ? "Waiting for Discord..." : "Verify with Discord"}
                     </Button>

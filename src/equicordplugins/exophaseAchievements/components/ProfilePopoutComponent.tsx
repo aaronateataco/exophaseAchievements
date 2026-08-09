@@ -1,16 +1,23 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { Paragraph } from "@components/Paragraph";
 import { Logger } from "@utils/Logger";
 import { classes } from "@utils/misc";
 import { User } from "@vencord/discord-types";
 import { findCssClassesLazy } from "@webpack";
-import { React, Tooltip, useEffect, useState, UserStore } from "@webpack/common";
+import { React, Tooltip, useEffect, UserStore,useState } from "@webpack/common";
 
 import { fetchSummary, getExophaseProfileUrl, sortByRecency } from "../exophaseApi";
 import { settings } from "../index";
-import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "../verificationCache";
 import { ExophaseSummary } from "../types";
+import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "../verificationCache";
 
 const logger = new Logger("ExophaseAchievements");
+const USERNAME_SETTING: "exophaseUsername"[] = ["exophaseUsername"];
 
 const ProfileCardClasses = findCssClassesLazy("cardsList", "firstCardContainer", "card", "container");
 const ProfileCardContainerClasses = findCssClassesLazy("innerContainer", "icons", "icon", "breadcrumb");
@@ -24,8 +31,9 @@ interface ProfilePopoutProps {
 
 export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
     const own = user.id === UserStore.getCurrentUser()?.id;
+    const { exophaseUsername } = settings.use(USERNAME_SETTING);
 
-    const [username, setUsername] = useState<string | null>(own ? (settings.store.exophaseUsername || null) : null);
+    const [username, setUsername] = useState<string | null>(own ? (exophaseUsername || null) : null);
     const [hiddenSections, setHiddenSections] = useState<string[]>([]);
     const [summary, setSummary] = useState<ExophaseSummary | null>(null);
 
@@ -36,7 +44,7 @@ export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
     // connection match.
     useEffect(() => {
         if (own) {
-            setUsername(settings.store.exophaseUsername || null);
+            setUsername(exophaseUsername || null);
             setHiddenSections([]);
             return;
         }
@@ -55,7 +63,7 @@ export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
             setHiddenSections(info?.hiddenSections ?? []);
         });
         return () => { cancelled = true; };
-    }, [user.id, own, settings.store.exophaseUsername]);
+    }, [user.id, own, exophaseUsername]);
 
     useEffect(() => {
         if (!username) {

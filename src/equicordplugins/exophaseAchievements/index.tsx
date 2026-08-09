@@ -1,3 +1,9 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import "./styles.css";
 
 import { definePluginSettings } from "@api/Settings";
@@ -36,7 +42,7 @@ export const settings = definePluginSettings({
     verify: {
         type: OptionType.COMPONENT,
         description: "Verify your Exophase account so your achievements can show up on your profile for other people too (not just you)",
-        component: () => <VerifySettings />,
+        component: VerifySettings,
     },
 });
 
@@ -85,6 +91,15 @@ export default definePlugin({
         }
     ],
 
+    // The tab-bar patch below needs a synchronous answer, so warm the
+    // verification cache as soon as a profile is opened rather than on the
+    // render that needs it.
+    flux: {
+        USER_PROFILE_MODAL_OPEN({ userId }: { userId: string; }) {
+            ensureVerificationCached(userId);
+        },
+    },
+
     getTabLabel,
 
     // Own profile: gated purely on the local setting, same as before - no
@@ -110,13 +125,11 @@ export default definePlugin({
 
             const cached = getCachedVerification(userId);
             if (cached === undefined) {
-                // Fire-and-forget; swallow so a rejected promise here can
-                // never surface as an unhandled rejection mid-render.
-                ensureVerificationCached(userId).catch(() => { });
+                ensureVerificationCached(userId);
                 return false;
             }
 
-            return !!cached?.verified && !cached.hiddenSections?.includes(SECTION_IDS.TAB);
+            return !!cached?.verified && !cached.hiddenSections.includes(SECTION_IDS.TAB);
         } catch (error) {
             logger.error("shouldShowExophaseTab threw, hiding tab for this render:", error);
             return false;

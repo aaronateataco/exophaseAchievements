@@ -1,17 +1,12 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { Logger } from "@utils/Logger";
 
-import { describeFetchFailure } from "./netUtils";
-
-// VencordNative is injected as a global by the client (see Vencord's
-// src/VencordNative.ts) - no import needed, just declared for TS.
-declare const VencordNative: {
-    native: {
-        openExternal(url: string): void;
-    };
-} | undefined;
-
-const VERIFY_API_HOST = "exophaseverify.vercel.app";
-const VERIFY_API_BASE = `https://${VERIFY_API_HOST}/api`;
+const VERIFY_API_BASE = "https://exophaseverify.vercel.app/api";
 const POLL_INTERVAL_MS = 2000;
 // The backend's poll-code KV entry has a 10 minute TTL; we give up client-side
 // a little before that so we always get a clean "timeout" instead of racing
@@ -51,31 +46,8 @@ export function buildVerifyStartUrl(exophaseUsername: string, code: string): str
     return `${VERIFY_API_BASE}/verify/start?${params.toString()}`;
 }
 
-/**
- * Opens the verify-start URL in the user's real system browser. OAuth consent
- * has to happen outside the Discord client (plugin rules forbid in-client
- * OAuth), which is also why this whole flow is poll-based rather than using
- * window.opener/postMessage.
- */
-function openInExternalBrowser(url: string) {
-    if (typeof VencordNative !== "undefined" && VencordNative?.native?.openExternal) {
-        VencordNative.native.openExternal(url);
-        return;
-    }
-    // Fallback for non-desktop targets where VencordNative isn't available.
-    window.open(url, "_blank", "noopener,noreferrer");
-}
-
 async function pollVerify(code: string, signal?: AbortSignal): Promise<VerifyPollResult> {
-    const startedAt = Date.now();
-
-    let response: Response;
-    try {
-        response = await fetch(`${VERIFY_API_BASE}/verify/poll?code=${encodeURIComponent(code)}`, { signal });
-    } catch (error) {
-        if ((error as Error)?.name === "AbortError") throw error;
-        throw new Error(describeFetchFailure(error, startedAt, VERIFY_API_HOST));
-    }
+    const response = await fetch(`${VERIFY_API_BASE}/verify/poll?code=${encodeURIComponent(code)}`, { signal });
 
     if (!response.ok) {
         throw new Error(`Verify poll failed (HTTP ${response.status})`);
@@ -90,7 +62,6 @@ async function pollVerify(code: string, signal?: AbortSignal): Promise<VerifyPol
  * either way; failures are still logged.
  */
 export async function fetchUserVerification(discordId: string, signal?: AbortSignal): Promise<PublicUserVerification | null> {
-    const startedAt = Date.now();
     try {
         const response = await fetch(`${VERIFY_API_BASE}/users/${encodeURIComponent(discordId)}`, { signal });
         if (response.status === 404) return null;
@@ -98,7 +69,7 @@ export async function fetchUserVerification(discordId: string, signal?: AbortSig
         return await response.json();
     } catch (error) {
         if ((error as Error)?.name === "AbortError") throw error;
-        logger.error("Failed to fetch verification for", discordId, describeFetchFailure(error, startedAt, VERIFY_API_HOST));
+        logger.error("Failed to fetch verification for", discordId, error);
         return null;
     }
 }
@@ -108,21 +79,14 @@ export async function updateHiddenSections(
     settingsToken: string,
     hiddenSections: string[]
 ): Promise<PublicUserVerification> {
-    const startedAt = Date.now();
-
-    let response: Response;
-    try {
-        response = await fetch(`${VERIFY_API_BASE}/users/${encodeURIComponent(discordId)}/settings`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${settingsToken}`,
-            },
-            body: JSON.stringify({ hiddenSections }),
-        });
-    } catch (error) {
-        throw new Error(describeFetchFailure(error, startedAt, VERIFY_API_HOST));
-    }
+    const response = await fetch(`${VERIFY_API_BASE}/users/${encodeURIComponent(discordId)}/settings`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${settingsToken}`,
+        },
+        body: JSON.stringify({ hiddenSections }),
+    });
 
     if (!response.ok) {
         throw new Error(`Failed to update hidden sections (HTTP ${response.status})`);
@@ -152,7 +116,10 @@ export function startVerifyFlow(exophaseUsername: string, handlers: VerifyFlowHa
     let cancelled = false;
     const startedAt = Date.now();
 
-    openInExternalBrowser(buildVerifyStartUrl(exophaseUsername, code));
+    // OAuth consent has to happen in a real external browser (plugin rules
+    // forbid in-client OAuth), which is also why this flow is poll-based
+    // rather than using window.opener/postMessage.
+    VencordNative.native.openExternal(buildVerifyStartUrl(exophaseUsername, code));
 
     const tick = async () => {
         if (cancelled) return;
