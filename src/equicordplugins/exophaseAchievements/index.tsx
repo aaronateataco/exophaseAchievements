@@ -59,6 +59,7 @@ export default definePlugin({
     description: "Shows Exophase game achievements on Discord profiles - your own always, and other verified users' too.",
     tags: ["Activity", "Fun"],
     authors: [EquicordDevs.Aaronateataco],
+    dependencies: ["ProfileCollectionsAPI"],
     settings,
 
     patches: [
@@ -77,16 +78,6 @@ export default definePlugin({
             replacement: {
                 match: /(\i)===\i\.\i\.WISHLIST/,
                 replace: `$1==="${TAB_SECTION_ID}"?$self.renderExophaseTab(arguments[0]):$&`,
-            }
-        },
-        // 3. Adds a small "recent achievements" card to the profile popout (the
-        // hover-card you get from clicking someone's avatar), next to Discord's
-        // own connection/activity cards.
-        {
-            find: "UserProfilePopout",
-            replacement: {
-                match: /\{profileType:(\i)\.(\i)\.PANEL,children:\[/,
-                replace: "{profileType:$1.$2.PANEL,children:[$self.renderProfilePopoutCard(arguments[0]),",
             }
         }
     ],
@@ -111,7 +102,7 @@ export default definePlugin({
     // time around.
     // NOTE: this runs *inline* inside Discord's own tab-bar render function
     // (see patch #1) - there is no ErrorBoundary around this call the way
-    // there is for renderProfilePopoutCard/renderExophaseTab below, so an
+    // there is for renderExophaseTab below, so an
     // uncaught throw here doesn't just blank out our own UI, it blows up
     // whatever Discord component is rendering the profile at the time. Keep
     // this bulletproof: always resolve to a boolean, never throw.
@@ -136,9 +127,14 @@ export default definePlugin({
         }
     },
 
-    renderProfilePopoutCard: ErrorBoundary.wrap((props: { user: User; }) => {
-        return <ProfilePopoutComponent user={props.user} />;
-    }, { noop: true }),
+    // Adds a small "recent achievements" card to the profile popout, next to
+    // Discord's own connection/activity cards.
+    renderProfileCollection: {
+        render: (props: { user: User; isSideBar: boolean; }) => (
+            <ProfilePopoutComponent user={props.user} isSideBar={props.isSideBar} />
+        ),
+        priority: 0,
+    },
 
     renderExophaseTab: ErrorBoundary.wrap((props: { user: User; }) => {
         return <ProfileTabComponent user={props.user} tabLabel={getTabLabel()} />;

@@ -19,6 +19,7 @@ import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "..
 const logger = new Logger("ExophaseAchievements");
 const USERNAME_SETTING: "exophaseUsername"[] = ["exophaseUsername"];
 
+const DMSideBarClasses = findCssClassesLazy("widgetPreviews");
 const ProfileCardClasses = findCssClassesLazy("cardsList", "firstCardContainer", "card", "container");
 const ProfileCardContainerClasses = findCssClassesLazy("innerContainer", "icons", "icon", "breadcrumb");
 const ProfileCardOverlayClasses = findCssClassesLazy("overlay");
@@ -27,9 +28,10 @@ const MAX_POPOUT_BADGES = 20;
 
 interface ProfilePopoutProps {
     user: User;
+    isSideBar?: boolean;
 }
 
-export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
+export function ProfilePopoutComponent({ user, isSideBar = false }: ProfilePopoutProps) {
     const own = user.id === UserStore.getCurrentUser()?.id;
     const { exophaseUsername } = settings.use(USERNAME_SETTING);
 
@@ -96,7 +98,7 @@ export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
 
     const totalGames = summary?.platforms?.reduce((total, platform) => total + (platform.games_owned ?? 0), 0) ?? 0;
 
-    return (
+    const achievementsSection = (
         <section className={ProfileCardClasses.container}>
             <ul className={ProfileCardClasses.cardsList} tabIndex={-1}>
                 <li className={ProfileCardClasses.firstCardContainer}>
@@ -108,7 +110,7 @@ export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
                             "vc-exophase-popout"
                         )}
                     >
-                        <Paragraph size="xs" weight="medium">
+                        <Paragraph size={isSideBar ? "sm" : "xs"} weight="medium">
                             Exophase Achievements{totalGames > 0 && ` (${totalGames} Games)`}
                         </Paragraph>
 
@@ -143,4 +145,8 @@ export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
             </ul>
         </section>
     );
+
+    return isSideBar
+        ? <div className={DMSideBarClasses.widgetPreviews}>{achievementsSection}</div>
+        : achievementsSection;
 }
