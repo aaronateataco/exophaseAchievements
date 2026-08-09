@@ -1,9 +1,10 @@
 import { Logger } from "@utils/Logger";
-import { moment, React, Tooltip, useEffect, useMemo, useState } from "@webpack/common";
+import { moment, React, Tooltip, useEffect, useMemo, useState, UserStore } from "@webpack/common";
 import { User } from "@vencord/discord-types";
 
-import { fetchAchievements, fetchSummary, getExophaseProfileUrl } from "../exophaseApi";
+import { fetchAchievements, fetchSummary, getExophaseProfileUrl, sortByRecency } from "../exophaseApi";
 import { settings } from "../index";
+import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "../verificationCache";
 import { ExophaseAchievement, ExophaseSummary } from "../types";
 import { ExophaseCard } from "./ExophaseCard";
 import { ExophaseSubTabs } from "./ExophaseSubTabs";
@@ -40,19 +41,64 @@ function groupByPlatformAndGame(achievements: ExophaseAchievement[]): GamesByPla
     return grouped;
 }
 
-export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
-    const username = settings.store.exophaseUsername;
+export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
+    const own = user.id === UserStore.getCurrentUser()?.id;
 
+    // Own profile: use the locally configured username directly. Anyone
+    // else's profile: only show achievements for an Exophase account that's
+    // been proven theirs via ExophaseVerify (see verifyApi.ts). This should
+    // already be warm in the cache by the time this tab is actually visible,
+    // since the plugin only injects the tab button once shouldShowExophaseTab
+    // (index.tsx) has confirmed verification - but we still fall back to a
+    // fresh fetch defensively.
+    const [username, setUsername] = useState<string | null>(own ? (settings.store.exophaseUsername || null) : null);
+
+    // Always the *full*, unfiltered achievement list for this user - platform
+    // filtering happens entirely client-side below (see `activeAchievements`).
+    // The Exophase API's own `?platform=` filter is undocumented and the
+    // value it expects doesn't reliably match the `platform` string the API
+    // itself returns on each achievement, so asking the server to filter
+    // silently no-ops and hands back the same unfiltered list every time -
+    // which made every sub-tab look identical to "All". Filtering locally
+    // sidesteps that entirely, and as a bonus makes switching tabs instant
+    // since it no longer needs a network round trip.
     const [achievements, setAchievements] = useState<ExophaseAchievement[]>([]);
     const [summary, setSummary] = useState<ExophaseSummary | null>(null);
-    const [platforms, setPlatforms] = useState<string[]>(["All"]);
     const [activePlatform, setActivePlatform] = useState("All");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (own) {
+            setUsername(settings.store.exophaseUsername || null);
+            return;
+        }
+
+        const cached = getCachedVerification(user.id);
+        if (cached !== undefined) {
+            setUsername(cached?.verified && !cached.hiddenSections.includes(SECTION_IDS.TAB) ? cached.exophaseUsername : null);
+            return;
+        }
+
+        let cancelled = false;
+        ensureVerificationCached(user.id).then(info => {
+            if (cancelled) return;
+            setUsername(info?.verified && !info.hiddenSections.includes(SECTION_IDS.TAB) ? info.exophaseUsername : null);
+        });
+        return () => { cancelled = true; };
+    }, [user.id, own, settings.store.exophaseUsername]);
+
+    useEffect(() => {
+        // Reset the platform filter whenever we switch to looking at a
+        // different user/username - otherwise a platform selection from a
+        // previous profile could persist and (if that platform doesn't
+        // exist for the new user) silently show an empty list.
+        setActivePlatform("All");
+
         if (!username) {
             setLoading(false);
+            setAchievements([]);
+            setSummary(null);
             return;
         }
 
@@ -61,17 +107,12 @@ export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
         setError(null);
 
         Promise.all([
-            fetchAchievements(username, activePlatform, controller.signal),
+            fetchAchievements(username, undefined, controller.signal),
             fetchSummary(username, controller.signal),
         ])
             .then(([achievementList, summaryData]) => {
                 setAchievements(achievementList);
                 if (summaryData) setSummary(summaryData);
-
-                if (activePlatform === "All") {
-                    const uniquePlatforms = Array.from(new Set(achievementList.map(a => a.platform).filter(Boolean))) as string[];
-                    setPlatforms(["All", ...uniquePlatforms]);
-                }
             })
             .catch(err => {
                 if (err?.name === "AbortError") return;
@@ -81,7 +122,23 @@ export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
             .finally(() => setLoading(false));
 
         return () => controller.abort();
-    }, [activePlatform, username]);
+    }, [username]);
+
+    const platforms = useMemo(() => {
+        const uniquePlatforms = Array.from(new Set(achievements.map(a => a.platform).filter(Boolean))) as string[];
+        return ["All", ...uniquePlatforms];
+    }, [achievements]);
+
+    // The actual per-tab filter - purely local, see comment on `achievements` above.
+    const activeAchievements = useMemo(
+        () => activePlatform === "All" ? achievements : achievements.filter(a => a.platform === activePlatform),
+        [achievements, activePlatform]
+    );
+
+    const latestAchievements = useMemo(
+        () => sortByRecency(achievements).slice(0, LATEST_ACHIEVEMENT_COUNT),
+        [achievements]
+    );
 
     const groupedByPlatform = useMemo(() => groupByPlatformAndGame(achievements), [achievements]);
 
@@ -89,7 +146,9 @@ export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
         return (
             <div className="vc-exophase-container">
                 <p className="vc-exophase-meta">
-                    Set your Exophase username in the plugin settings to see your {tabLabel.toLowerCase()} here.
+                    {own
+                        ? `Set your Exophase username in the plugin settings to see your ${tabLabel.toLowerCase()} here.`
+                        : "This user hasn't verified an Exophase account yet."}
                 </p>
             </div>
         );
@@ -114,7 +173,6 @@ export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
     const totalUnlocked = summary?.stats?.total_achievements ?? achievements.length;
     const totalPlaytime = summary?.stats?.total_playtime_hours;
     const completion = summary?.stats?.overall_completion_percentage;
-    const latestAchievements = achievements.slice(0, LATEST_ACHIEVEMENT_COUNT);
 
     return (
         <div className="vc-exophase-container">
@@ -143,7 +201,7 @@ export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
                 onSelect={setActivePlatform}
             />
 
-            {achievements.length === 0 ? (
+            {activeAchievements.length === 0 ? (
                 <p className="vc-exophase-meta">
                     No {tabLabel.toLowerCase()} found{activePlatform !== "All" ? ` for ${activePlatform}` : ""}.
                 </p>
@@ -239,7 +297,7 @@ export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
                 </div>
             ) : (
                 <div className="vc-exophase-list-detailed">
-                    {achievements.map((achievement, idx) => (
+                    {activeAchievements.map((achievement, idx) => (
                         <ExophaseCard key={achievement.id ?? idx} achievement={achievement} />
                     ))}
                 </div>

@@ -355,3 +355,65 @@
     flex-shrink: 0;
     align-self: center;
 }
+
+/* Settings-panel verification UI */
+.vc-exophase-verify-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.vc-exophase-verify-status {
+    margin: 0;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--text-default);
+}
+
+.vc-exophase-verify-status-ok {
+    color: var(--text-positive);
+}
+
+.vc-exophase-verify-status-error {
+    color: var(--text-danger);
+}
+
+.vc-exophase-verify-meta {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.vc-exophase-verify-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vc-exophase-verify-section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-default);
+    cursor: pointer;
+}
+
+.vc-exophase-verify-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.vc-exophase-verify-username-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.vc-exophase-verify-username-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--header-secondary);
+    text-transform: uppercase;
+}

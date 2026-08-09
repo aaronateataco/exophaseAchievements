@@ -1,8 +1,10 @@
 import { Logger } from "@utils/Logger";
 
+import { describeFetchFailure } from "./netUtils";
 import { ExophaseAchievement, ExophaseSummary } from "./types";
 
-const API_BASE = "https://exophaseapi.vercel.app/api/v1";
+const API_HOST = "exophaseapi.vercel.app";
+const API_BASE = `https://${API_HOST}/api/v1`;
 const logger = new Logger("ExophaseAchievements");
 
 export function getExophaseProfileUrl(username: string) {
@@ -10,7 +12,15 @@ export function getExophaseProfileUrl(username: string) {
 }
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, { signal });
+    const startedAt = Date.now();
+
+    let response: Response;
+    try {
+        response = await fetch(`${API_BASE}${path}`, { signal });
+    } catch (error) {
+        if ((error as Error)?.name === "AbortError") throw error;
+        throw new Error(describeFetchFailure(error, startedAt, API_HOST));
+    }
 
     if (!response.ok) {
         throw new Error(`Exophase API request failed (HTTP ${response.status})`);
@@ -26,12 +36,18 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
  */
 export async function fetchAchievements(username: string, platform?: string, signal?: AbortSignal): Promise<ExophaseAchievement[]> {
     const query = platform && platform !== "All" ? `?platform=${encodeURIComponent(platform.toLowerCase())}` : "";
-    const data = await get<ExophaseAchievement[] | { achievements?: ExophaseAchievement[]; }>(
-        `/user/${encodeURIComponent(username)}/achievements${query}`,
-        signal
-    );
+    try {
+        const data = await get<ExophaseAchievement[] | { achievements?: ExophaseAchievement[]; }>(
+            `/user/${encodeURIComponent(username)}/achievements${query}`,
+            signal
+        );
 
-    return Array.isArray(data) ? data : (data?.achievements ?? []);
+        return Array.isArray(data) ? data : (data?.achievements ?? []);
+    } catch (error) {
+        if ((error as Error)?.name === "AbortError") throw error;
+        logger.error("Failed to fetch achievements:", error);
+        throw error;
+    }
 }
 
 /**
@@ -44,7 +60,28 @@ export async function fetchSummary(username: string, signal?: AbortSignal): Prom
         return await get<ExophaseSummary>(`/user/${encodeURIComponent(username)}/summary`, signal);
     } catch (error) {
         if ((error as Error)?.name === "AbortError") throw error;
-        logger.error("Failed to fetch summary:", error);
+        logger.error("Failed to fetch summary:", (error as Error)?.message ?? error);
         return null;
     }
+}
+
+function getAchievementTimestamp(achievement: ExophaseAchievement): number {
+    const raw = achievement.earned_at ?? achievement.unlocked_at;
+    if (!raw) return 0;
+    const parsed = Date.parse(raw);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Returns a new array of achievements sorted most-recent-first. Achievements
+ * with no parseable earned/unlocked date sort to the end (stable relative to
+ * each other) rather than throwing off the ordering of ones that do have a
+ * date.
+ *
+ * The API's "summary" endpoint nominally has its own `recent_achievements`
+ * field, but it isn't reliably populated - this is the robust alternative:
+ * sort whatever achievement list we already fetched ourselves.
+ */
+export function sortByRecency(achievements: ExophaseAchievement[]): ExophaseAchievement[] {
+    return [...achievements].sort((a, b) => getAchievementTimestamp(b) - getAchievementTimestamp(a));
 }

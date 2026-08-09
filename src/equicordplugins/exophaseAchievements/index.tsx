@@ -2,20 +2,25 @@ import "./styles.css";
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
+import { EquicordDevs } from "@utils/constants";
+import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { UserStore } from "@webpack/common";
 
 import { ProfilePopoutComponent } from "./components/ProfilePopoutComponent";
 import { ProfileTabComponent } from "./components/ProfileTabComponent";
+import { VerifySettings } from "./components/VerifySettings";
+import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "./verificationCache";
 
 const TAB_SECTION_ID = "EXOPHASE";
 const DEFAULT_TAB_NAME = "Achievements";
+const logger = new Logger("ExophaseAchievements");
 
 export const settings = definePluginSettings({
     exophaseUsername: {
         type: OptionType.STRING,
-        description: "Your Exophase username. Only used to show your own achievements on your own profile.",
+        description: "Your Exophase username. Used to show your own achievements on your own profile, and as the username submitted when you verify below.",
         default: "",
     },
     tabName: {
@@ -27,6 +32,11 @@ export const settings = definePluginSettings({
             { label: "Trophies", value: "Trophies" },
             { label: "Pins", value: "Pins" },
         ],
+    },
+    verify: {
+        type: OptionType.COMPONENT,
+        description: "Verify your Exophase account so your achievements can show up on your profile for other people too (not just you)",
+        component: () => <VerifySettings />,
     },
 });
 
@@ -40,9 +50,9 @@ function isOwnProfile(userId?: string) {
 
 export default definePlugin({
     name: "ExophaseAchievements",
-    description: "Shows your Exophase game achievements on your own Discord profile.",
+    description: "Shows Exophase game achievements on Discord profiles - your own always, and other verified users' too.",
     tags: ["Activity", "Fun"],
-    authors: [{ name: "Aaronateataco", id: 0n }],
+    authors: [EquicordDevs.Aaronateataco],
     settings,
 
     patches: [
@@ -77,17 +87,43 @@ export default definePlugin({
 
     getTabLabel,
 
-    // The tab only ever shows the locally configured Exophase account, so it
-    // only makes sense to show it on your own profile - showing your own
-    // achievements while looking at someone else's profile would be
-    // misleading. This also means nothing is fetched or shown until a
-    // username has actually been configured in settings.
+    // Own profile: gated purely on the local setting, same as before - no
+    // network round trip needed to see your own stuff.
+    // Someone else's profile: gated on the verification cache, since we can
+    // only legitimately show achievements for people who've proven the
+    // Exophase account is theirs via ExophaseVerify. A cache miss kicks off a
+    // background fetch (see verificationCache.ts) and shows nothing this
+    // time around.
+    // NOTE: this runs *inline* inside Discord's own tab-bar render function
+    // (see patch #1) - there is no ErrorBoundary around this call the way
+    // there is for renderProfilePopoutCard/renderExophaseTab below, so an
+    // uncaught throw here doesn't just blank out our own UI, it blows up
+    // whatever Discord component is rendering the profile at the time. Keep
+    // this bulletproof: always resolve to a boolean, never throw.
     shouldShowExophaseTab(userId?: string) {
-        return isOwnProfile(userId) && !!settings.store.exophaseUsername;
+        try {
+            if (!userId) return false;
+
+            if (isOwnProfile(userId)) {
+                return !!settings.store.exophaseUsername;
+            }
+
+            const cached = getCachedVerification(userId);
+            if (cached === undefined) {
+                // Fire-and-forget; swallow so a rejected promise here can
+                // never surface as an unhandled rejection mid-render.
+                ensureVerificationCached(userId).catch(() => { });
+                return false;
+            }
+
+            return !!cached?.verified && !cached.hiddenSections?.includes(SECTION_IDS.TAB);
+        } catch (error) {
+            logger.error("shouldShowExophaseTab threw, hiding tab for this render:", error);
+            return false;
+        }
     },
 
     renderProfilePopoutCard: ErrorBoundary.wrap((props: { user: User; }) => {
-        if (!isOwnProfile(props.user.id) || !settings.store.exophaseUsername) return null;
         return <ProfilePopoutComponent user={props.user} />;
     }, { noop: true }),
 
