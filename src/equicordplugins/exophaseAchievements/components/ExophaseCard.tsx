@@ -1,62 +1,63 @@
-import { React, Tooltip, moment } from "@webpack/common";
+import { moment, React, Tooltip } from "@webpack/common";
+
+import { ExophaseAchievement } from "../types";
 
 interface ExophaseCardProps {
-    game: any;
+    achievement: ExophaseAchievement;
 }
 
 function formatUnlockedTime(rawDate?: string | null) {
     if (!rawDate) return { relative: "Unlocked", full: "" };
-    try {
-        const d = moment(rawDate);
-        if (!d.isValid()) return { relative: rawDate, full: rawDate };
-        return {
-            relative: d.fromNow(),
-            full: d.format("MMMM D, YYYY [at] h:mm A")
-        };
-    } catch {
-        return { relative: rawDate, full: rawDate };
-    }
+
+    const parsed = moment(rawDate);
+    if (!parsed.isValid()) return { relative: rawDate, full: rawDate };
+
+    return {
+        relative: parsed.fromNow(),
+        full: parsed.format("MMMM D, YYYY [at] h:mm A"),
+    };
 }
 
-export function ExophaseCard({ game }: ExophaseCardProps) {
-    const achievementName = game.name || game.title || "Achievement";
-    const gameTitle = game.game_title || game.game || "";
-    const imageUrl = game.icon_url || game.icon || game.image || game.thumb || game.cover;
-    const url = game.url || game.link || "https://www.exophase.com";
-    const rarity = game.rarity_percent ?? game.rarity;
-
-    const timeInfo = formatUnlockedTime(game.earned_at || game.unlocked_at);
-    const handleClick = () => window.open(url, "_blank", "noopener,noreferrer");
+export function ExophaseCard({ achievement }: ExophaseCardProps) {
+    const name = achievement.name ?? achievement.title ?? "Achievement";
+    const gameTitle = achievement.game_title ?? achievement.game ?? "";
+    const imageUrl = achievement.icon_url ?? achievement.icon;
+    const url = achievement.url ?? achievement.link ?? "https://www.exophase.com";
+    const rarity = achievement.rarity_percent ?? achievement.rarity;
+    const time = formatUnlockedTime(achievement.earned_at ?? achievement.unlocked_at);
 
     return (
-        <div className="vc-exophase-card vc-exophase-card-detailed" onClick={handleClick}>
+        <div
+            className="vc-exophase-card vc-exophase-card-detailed"
+            onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+        >
             {imageUrl && (
                 <img
                     src={imageUrl}
-                    alt={achievementName}
+                    alt={name}
                     className="vc-exophase-card-icon-detailed"
                 />
             )}
             <div className="vc-exophase-card-content">
                 {gameTitle && (
-                    <span className="vc-exophase-subtitle vc-text-line-clamp-1">
+                    <span className="vc-exophase-subtitle">
                         {gameTitle}
                     </span>
                 )}
-                <p className="vc-exophase-title vc-text-line-clamp-1">
-                    {achievementName}
+                <p className="vc-exophase-title">
+                    {name}
                 </p>
-                {game.description && (
-                    <p className="vc-exophase-description vc-text-line-clamp-2">
-                        {game.description}
+                {achievement.description && (
+                    <p className="vc-exophase-description">
+                        {achievement.description}
                     </p>
                 )}
 
                 <div className="vc-exophase-card-footer">
-                    <Tooltip text={timeInfo.full}>
+                    <Tooltip text={time.full}>
                         {tooltipProps => (
                             <span {...tooltipProps} className="vc-exophase-time">
-                                Unlocked {timeInfo.relative}
+                                Unlocked {time.relative}
                             </span>
                         )}
                     </Tooltip>

@@ -1,10 +1,6 @@
 import { React } from "@webpack/common";
 
-interface SubTabsProps {
-    platforms: string[];
-    activePlatform: string;
-    onSelect: (platform: string) => void;
-}
+import { SubTabsProps } from "../types";
 
 export function ExophaseSubTabs({ platforms, activePlatform, onSelect }: SubTabsProps) {
     if (platforms.length <= 1) return null;
@@ -16,18 +12,15 @@ export function ExophaseSubTabs({ platforms, activePlatform, onSelect }: SubTabs
 
     return (
         <div className="vc-exophase-subtabs" onWheel={handleWheel}>
-            {platforms.map(platform => {
-                const isActive = activePlatform === platform;
-                return (
-                    <div
-                        key={platform}
-                        onClick={() => onSelect(platform)}
-                        className={`vc-exophase-subtab ${isActive ? "vc-exophase-subtab-active" : ""}`}
-                    >
-                        {platform}
-                    </div>
-                );
-            })}
+            {platforms.map(platform => (
+                <div
+                    key={platform}
+                    onClick={() => onSelect(platform)}
+                    className={`vc-exophase-subtab ${activePlatform === platform ? "vc-exophase-subtab-active" : ""}`}
+                >
+                    {platform}
+                </div>
+            ))}
         </div>
     );
 }

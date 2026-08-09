@@ -1,4 +1,4 @@
-/* Defensive Reset for Exophase Images */
+/* Defensive reset so badge/card images never blow out Discord's layout */
 [class^="vc-exophase-"] img,
 .vc-exophase-container img {
     max-width: 100%;
@@ -7,7 +7,7 @@
     box-sizing: border-box;
 }
 
-/* Full Profile Tab Container */
+/* Full profile tab container */
 .vc-exophase-container {
     padding: 16px;
     height: 100%;
@@ -19,7 +19,6 @@
     box-sizing: border-box;
 }
 
-/* Vertical Scrollbar */
 .vc-exophase-container::-webkit-scrollbar {
     width: 8px;
 }
@@ -33,7 +32,11 @@
     border-radius: 4px;
 }
 
-/* Stats Header */
+.vc-exophase-error {
+    color: var(--text-danger) !important;
+}
+
+/* Stats header */
 .vc-exophase-stats-bar {
     display: flex;
     gap: 20px;
@@ -61,7 +64,7 @@
     color: var(--header-primary);
 }
 
-/* Subtabs Navigation & Horizontal Scrollbar */
+/* Platform subtabs */
 .vc-exophase-subtabs {
     display: flex;
     gap: 8px;
@@ -89,7 +92,6 @@
     border-radius: 3px;
 }
 
-/* Subtab Pills */
 .vc-exophase-subtab {
     padding: 6px 14px;
     border-radius: var(--radius-sm, 8px);
@@ -112,12 +114,12 @@
 
 .vc-exophase-subtab-active,
 .vc-exophase-subtab-active:hover {
-    background-color: var(--brand-500) !important;
-    color: #ffffff !important;
-    border-color: var(--brand-500) !important;
+    background-color: var(--brand-500);
+    color: #ffffff;
+    border-color: var(--brand-500);
 }
 
-/* Section Headers */
+/* Section headers */
 .vc-exophase-section-header {
     font-size: 12px;
     font-weight: 700;
@@ -127,7 +129,7 @@
     margin-top: 4px;
 }
 
-/* Discord Connection Header Card */
+/* Platform connection card (styled like Discord's own connection rows) */
 .vc-exophase-connection-card {
     display: flex;
     align-items: center;
@@ -164,7 +166,7 @@
     color: var(--text-muted);
 }
 
-/* Game Header Divider */
+/* Per-game header divider */
 .vc-exophase-game-header {
     font-size: 13px;
     font-weight: 600;
@@ -182,7 +184,7 @@
     color: var(--text-muted);
 }
 
-/* Tab Badge Grids */
+/* Badge grids */
 .vc-exophase-badge-grid {
     display: flex;
     flex-wrap: wrap;
@@ -190,13 +192,26 @@
     margin-bottom: 12px;
 }
 
-/* Badge Icons Strict Sizing (Full Profile) */
-img.vc-exophase-badge-item,
+/* Latest achievements grid: always 10 icons per row, sized to fit */
+.vc-exophase-latest-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 8px;
+}
+
+.vc-exophase-latest-grid .vc-exophase-badge-item {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: 1;
+}
+
 .vc-exophase-badge-item {
-    width: 36px !important;
-    height: 36px !important;
-    max-width: 36px !important;
-    max-height: 36px !important;
+    width: 36px;
+    height: 36px;
+    max-width: 36px;
+    max-height: 36px;
     border-radius: 6px;
     object-fit: cover;
     cursor: pointer;
@@ -205,34 +220,35 @@ img.vc-exophase-badge-item,
     transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
 }
 
-img.vc-exophase-badge-item:hover,
 .vc-exophase-badge-item:hover {
     transform: scale(1.12);
     border-color: var(--brand-500);
     filter: brightness(1.1);
 }
 
-/* Mini Profile / Popout Specific Scoping */
-.vc-exophase-popout,
-.vc-exophase-mini-profile {
+/* Profile popout card */
+.vc-exophase-popout {
     padding: 8px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.vc-exophase-popout img.vc-exophase-badge-item,
-.vc-exophase-mini-profile img.vc-exophase-badge-item,
-.vc-exophase-popout .vc-exophase-badge-item,
-.vc-exophase-mini-profile .vc-exophase-badge-item {
-    width: 24px !important;
-    height: 24px !important;
-    max-width: 24px !important;
-    max-height: 24px !important;
+.vc-exophase-mini-badges {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+}
+
+.vc-exophase-popout .vc-exophase-badge-item {
+    width: 24px;
+    height: 24px;
+    max-width: 24px;
+    max-height: 24px;
     border-radius: 4px;
 }
 
-/* Detailed Card Icons */
+/* Per-platform detailed list */
 .vc-exophase-list-detailed {
     display: flex;
     flex-direction: column;
@@ -256,12 +272,11 @@ img.vc-exophase-badge-item:hover,
     border-color: var(--interactive-icon-default);
 }
 
-img.vc-exophase-card-icon-detailed,
 .vc-exophase-card-icon-detailed {
-    width: 48px !important;
-    height: 48px !important;
-    max-width: 48px !important;
-    max-height: 48px !important;
+    width: 48px;
+    height: 48px;
+    max-width: 48px;
+    max-height: 48px;
     border-radius: 6px;
     object-fit: cover;
     flex-shrink: 0;
@@ -278,15 +293,22 @@ img.vc-exophase-card-icon-detailed,
     text-transform: uppercase;
     color: var(--text-muted);
     margin-bottom: 2px;
-    display: block;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
 }
 
 .vc-exophase-title {
-    color: var(--text-default) !important;
+    color: var(--text-default);
     font-weight: 600;
     font-size: 14px;
     line-height: 18px;
     margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
 }
 
 .vc-exophase-description {
@@ -294,6 +316,10 @@ img.vc-exophase-card-icon-detailed,
     color: var(--text-muted);
     margin-top: 4px;
     line-height: 16px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
 }
 
 .vc-exophase-card-footer {
@@ -318,7 +344,7 @@ img.vc-exophase-card-icon-detailed,
 }
 
 .vc-exophase-meta {
-    color: var(--text-muted) !important;
+    color: var(--text-muted);
     font-size: 12px;
     line-height: 16px;
     margin: 0;

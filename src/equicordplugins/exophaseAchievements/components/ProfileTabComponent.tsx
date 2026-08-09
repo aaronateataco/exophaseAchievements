@@ -1,68 +1,104 @@
-import { React, useEffect, useState, Tooltip, moment } from "@webpack/common";
+import { Logger } from "@utils/Logger";
+import { moment, React, Tooltip, useEffect, useMemo, useState } from "@webpack/common";
 import { User } from "@vencord/discord-types";
+
+import { fetchAchievements, fetchSummary, getExophaseProfileUrl } from "../exophaseApi";
 import { settings } from "../index";
+import { ExophaseAchievement, ExophaseSummary } from "../types";
 import { ExophaseCard } from "./ExophaseCard";
 import { ExophaseSubTabs } from "./ExophaseSubTabs";
 
+const logger = new Logger("ExophaseAchievements");
+
 interface ProfileTabProps {
-    user?: User;
-    displayProfile?: any;
+    user: User;
+    tabLabel: string;
 }
 
-type GroupedPlatformMap = Record<string, Record<string, any[]>>;
+type GamesByPlatform = Record<string, Record<string, ExophaseAchievement[]>>;
+
+const LATEST_ACHIEVEMENT_COUNT = 20;
 
 function formatTime(rawDate?: string | null) {
     if (!rawDate) return "Unlocked";
-    try {
-        const d = moment(rawDate);
-        return d.isValid() ? d.fromNow() : rawDate;
-    } catch {
-        return rawDate;
-    }
+    const parsed = moment(rawDate);
+    return parsed.isValid() ? parsed.fromNow() : rawDate;
 }
 
-export function ProfileTabComponent({ user }: ProfileTabProps) {
-    const [achievements, setAchievements] = useState<any[]>([]);
-    const [summary, setSummary] = useState<any | null>(null);
+function groupByPlatformAndGame(achievements: ExophaseAchievement[]): GamesByPlatform {
+    const grouped: GamesByPlatform = {};
+
+    for (const achievement of achievements) {
+        const platform = achievement.platform || "Other";
+        const game = achievement.game_title || achievement.game || "Unknown Game";
+
+        grouped[platform] ??= {};
+        grouped[platform][game] ??= [];
+        grouped[platform][game].push(achievement);
+    }
+
+    return grouped;
+}
+
+export function ProfileTabComponent({ tabLabel }: ProfileTabProps) {
+    const username = settings.store.exophaseUsername;
+
+    const [achievements, setAchievements] = useState<ExophaseAchievement[]>([]);
+    const [summary, setSummary] = useState<ExophaseSummary | null>(null);
     const [platforms, setPlatforms] = useState<string[]>(["All"]);
-    const [activePlatform, setActivePlatform] = useState<string>("All");
+    const [activePlatform, setActivePlatform] = useState("All");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const username = settings.store.exophaseUsername || "FoxStorm1";
-
     useEffect(() => {
+        if (!username) {
+            setLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
         setLoading(true);
         setError(null);
 
-        const platformParam = activePlatform === "All" ? "" : `?platform=${encodeURIComponent(activePlatform.toLowerCase())}`;
-
         Promise.all([
-            fetch(`https://exophaseapi.vercel.app/api/v1/user/${encodeURIComponent(username)}/achievements${platformParam}`).then(r => r.ok ? r.json() : null),
-            fetch(`https://exophaseapi.vercel.app/api/v1/user/${encodeURIComponent(username)}/summary`).then(r => r.ok ? r.json() : null)
+            fetchAchievements(username, activePlatform, controller.signal),
+            fetchSummary(username, controller.signal),
         ])
-            .then(([achData, sumData]) => {
-                const list = Array.isArray(achData) ? achData : (achData?.achievements || []);
-                setAchievements(list);
-                if (sumData) setSummary(sumData);
+            .then(([achievementList, summaryData]) => {
+                setAchievements(achievementList);
+                if (summaryData) setSummary(summaryData);
 
                 if (activePlatform === "All") {
-                    const uniquePlatforms = ["All", ...Array.from(new Set(list.map((a: any) => a.platform).filter(Boolean))) as string[]];
-                    setPlatforms(uniquePlatforms);
+                    const uniquePlatforms = Array.from(new Set(achievementList.map(a => a.platform).filter(Boolean))) as string[];
+                    setPlatforms(["All", ...uniquePlatforms]);
                 }
-                setLoading(false);
             })
             .catch(err => {
-                console.error("[Exophase Plugin] Tab Fetch Error:", err);
-                setError("Failed to load achievements");
-                setLoading(false);
-            });
-    }, [activePlatform, user?.id]);
+                if (err?.name === "AbortError") return;
+                logger.error("Failed to load achievements:", err);
+                setError("Couldn't load your achievements from Exophase. Please try again later.");
+            })
+            .finally(() => setLoading(false));
+
+        return () => controller.abort();
+    }, [activePlatform, username]);
+
+    const groupedByPlatform = useMemo(() => groupByPlatformAndGame(achievements), [achievements]);
+
+    if (!username) {
+        return (
+            <div className="vc-exophase-container">
+                <p className="vc-exophase-meta">
+                    Set your Exophase username in the plugin settings to see your {tabLabel.toLowerCase()} here.
+                </p>
+            </div>
+        );
+    }
 
     if (loading && !summary) {
         return (
             <div className="vc-exophase-container">
-                <p className="vc-exophase-meta">Loading achievements...</p>
+                <p className="vc-exophase-meta">Loading {tabLabel.toLowerCase()}...</p>
             </div>
         );
     }
@@ -70,9 +106,7 @@ export function ProfileTabComponent({ user }: ProfileTabProps) {
     if (error) {
         return (
             <div className="vc-exophase-container">
-                <p className="vc-exophase-meta" style={{ color: "var(--text-danger)" }}>
-                    {error}
-                </p>
+                <p className="vc-exophase-meta vc-exophase-error">{error}</p>
             </div>
         );
     }
@@ -80,21 +114,10 @@ export function ProfileTabComponent({ user }: ProfileTabProps) {
     const totalUnlocked = summary?.stats?.total_achievements ?? achievements.length;
     const totalPlaytime = summary?.stats?.total_playtime_hours;
     const completion = summary?.stats?.overall_completion_percentage;
-
-    const latest20 = achievements.slice(0, 20);
-
-    const groupedByPlatform = achievements.reduce((acc: GroupedPlatformMap, ach: any) => {
-        const plat = ach.platform || "Other";
-        const game = ach.game_title || ach.game || "Unknown Game";
-        if (!acc[plat]) acc[plat] = {};
-        if (!acc[plat][game]) acc[plat][game] = [];
-        acc[plat][game].push(ach);
-        return acc;
-    }, {});
+    const latestAchievements = achievements.slice(0, LATEST_ACHIEVEMENT_COUNT);
 
     return (
         <div className="vc-exophase-container">
-            {/* Stats Header */}
             <div className="vc-exophase-stats-bar">
                 <div className="vc-exophase-stat-item">
                     <span className="vc-exophase-stat-label">Unlocked</span>
@@ -114,37 +137,39 @@ export function ProfileTabComponent({ user }: ProfileTabProps) {
                 )}
             </div>
 
-            {/* Subtab Navigation Pills */}
             <ExophaseSubTabs
                 platforms={platforms}
                 activePlatform={activePlatform}
                 onSelect={setActivePlatform}
             />
 
-            {/* Content Body */}
-            {activePlatform === "All" ? (
+            {achievements.length === 0 ? (
+                <p className="vc-exophase-meta">
+                    No {tabLabel.toLowerCase()} found{activePlatform !== "All" ? ` for ${activePlatform}` : ""}.
+                </p>
+            ) : activePlatform === "All" ? (
                 <div className="vc-exophase-all-tab">
-                    {/* Top Section: 20 Latest Achievements */}
                     <div className="vc-exophase-section-header">
-                        20 Latest Achievements
+                        {LATEST_ACHIEVEMENT_COUNT} Latest {tabLabel}
                     </div>
                     <div className="vc-exophase-badge-grid vc-exophase-latest-grid">
-                        {latest20.map((item, idx) => {
-                            const title = item.name || item.title || "Achievement";
-                            const game = item.game_title || "Game";
-                            const icon = item.icon_url || item.icon;
-                            const time = formatTime(item.earned_at || item.unlocked_at);
-                            const tooltipText = `${game}: ${title} (${time})`;
+                        {latestAchievements.map((achievement, idx) => {
+                            const name = achievement.name ?? achievement.title ?? "Achievement";
+                            const game = achievement.game_title ?? achievement.game ?? "Game";
+                            const icon = achievement.icon_url ?? achievement.icon;
+                            const time = formatTime(achievement.earned_at ?? achievement.unlocked_at);
+                            const tooltipText = `${game}: ${name} (${time})`;
+                            const url = achievement.url ?? achievement.link;
 
                             return (
-                                <Tooltip key={item.id || idx} text={tooltipText}>
+                                <Tooltip key={achievement.id ?? idx} text={tooltipText}>
                                     {tooltipProps => (
                                         <img
                                             {...tooltipProps}
                                             src={icon}
                                             alt={tooltipText}
                                             className="vc-exophase-badge-item"
-                                            onClick={() => item.url && window.open(item.url, "_blank")}
+                                            onClick={() => url && window.open(url, "_blank", "noopener,noreferrer")}
                                         />
                                     )}
                                 </Tooltip>
@@ -152,81 +177,71 @@ export function ProfileTabComponent({ user }: ProfileTabProps) {
                         })}
                     </div>
 
-                    {/* Platforms Breakdown */}
-                    {Object.entries(groupedByPlatform).map(([platformName, gamesObj]) => {
-                        const gamesMap = gamesObj as Record<string, any[]>;
-                        const platInfo = summary?.platforms?.find((p: any) => p.platform.toLowerCase() === platformName.toLowerCase());
-                        const platUser = platInfo?.platform_username || username;
-                        const platUrl = summary?.profile_url ? `${summary.profile_url}#${platformName.toLowerCase()}` : `https://www.exophase.com/user/${username}`;
+                    {Object.entries(groupedByPlatform).map(([platformName, gamesMap]) => {
+                        const platformInfo = summary?.platforms?.find(p => p.platform.toLowerCase() === platformName.toLowerCase());
+                        const platformUsername = platformInfo?.platform_username || username;
+                        const platformUrl = summary?.profile_url
+                            ? `${summary.profile_url}#${platformName.toLowerCase()}`
+                            : getExophaseProfileUrl(username);
 
                         return (
                             <div key={platformName} className="vc-exophase-platform-block">
-                                {/* Discord Connection Style Card */}
                                 <a
-                                    href={platUrl}
+                                    href={platformUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="vc-exophase-connection-card"
                                 >
                                     <div className="vc-exophase-connection-info">
                                         <span className="vc-exophase-connection-name">{platformName}</span>
-                                        <span className="vc-exophase-connection-user">{platUser}</span>
+                                        <span className="vc-exophase-connection-user">{platformUsername}</span>
                                     </div>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
                                     </svg>
                                 </a>
 
-                                {/* Games with Dividers & Badge Rows */}
-                                {Object.entries(gamesMap).map(([gameTitle, gameAchList]) => {
-                                    const achList = gameAchList as any[];
-
-                                    return (
-                                        <div key={gameTitle} className="vc-exophase-game-group">
-                                            <div className="vc-exophase-game-header">
-                                                {gameTitle}
-                                                <span className="vc-exophase-game-count">({achList.length})</span>
-                                            </div>
-
-                                            <div className="vc-exophase-badge-grid">
-                                                {achList.map((ach, idx) => {
-                                                    const title = ach.name || ach.title || "Achievement";
-                                                    const icon = ach.icon_url || ach.icon;
-                                                    const time = formatTime(ach.earned_at || ach.unlocked_at);
-                                                    const tooltipText = `${title} • Unlocked ${time}`;
-
-                                                    return (
-                                                        <Tooltip key={ach.id || idx} text={tooltipText}>
-                                                            {tooltipProps => (
-                                                                <img
-                                                                    {...tooltipProps}
-                                                                    src={icon}
-                                                                    alt={tooltipText}
-                                                                    className="vc-exophase-badge-item"
-                                                                    onClick={() => ach.url && window.open(ach.url, "_blank")}
-                                                                />
-                                                            )}
-                                                        </Tooltip>
-                                                    );
-                                                })}
-                                            </div>
+                                {Object.entries(gamesMap).map(([gameTitle, gameAchievements]) => (
+                                    <div key={gameTitle} className="vc-exophase-game-group">
+                                        <div className="vc-exophase-game-header">
+                                            {gameTitle}
+                                            <span className="vc-exophase-game-count">({gameAchievements.length})</span>
                                         </div>
-                                    );
-                                })}
+
+                                        <div className="vc-exophase-badge-grid">
+                                            {gameAchievements.map((achievement, idx) => {
+                                                const name = achievement.name ?? achievement.title ?? "Achievement";
+                                                const icon = achievement.icon_url ?? achievement.icon;
+                                                const time = formatTime(achievement.earned_at ?? achievement.unlocked_at);
+                                                const tooltipText = `${name} • Unlocked ${time}`;
+                                                const url = achievement.url ?? achievement.link;
+
+                                                return (
+                                                    <Tooltip key={achievement.id ?? idx} text={tooltipText}>
+                                                        {tooltipProps => (
+                                                            <img
+                                                                {...tooltipProps}
+                                                                src={icon}
+                                                                alt={tooltipText}
+                                                                className="vc-exophase-badge-item"
+                                                                onClick={() => url && window.open(url, "_blank", "noopener,noreferrer")}
+                                                            />
+                                                        )}
+                                                    </Tooltip>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         );
                     })}
                 </div>
             ) : (
-                /* Individual Platform Tab */
                 <div className="vc-exophase-list-detailed">
-                    {achievements.length === 0 ? (
-                        <p className="vc-exophase-meta">No achievements found for {activePlatform}.</p>
-                    ) : (
-                        achievements.map((item, idx) => (
-                            <ExophaseCard key={item.id || idx} game={item} />
-                        ))
-                    )}
+                    {achievements.map((achievement, idx) => (
+                        <ExophaseCard key={achievement.id ?? idx} achievement={achievement} />
+                    ))}
                 </div>
             )}
         </div>

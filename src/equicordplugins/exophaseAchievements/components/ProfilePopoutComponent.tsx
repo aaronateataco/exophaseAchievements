@@ -1,110 +1,85 @@
 import { Paragraph } from "@components/Paragraph";
+import { Logger } from "@utils/Logger";
 import { classes } from "@utils/misc";
 import { User } from "@vencord/discord-types";
 import { findCssClassesLazy } from "@webpack";
-import { Clickable, React, Tooltip, useEffect, useState } from "@webpack/common";
+import { React, Tooltip, useEffect, useState } from "@webpack/common";
+
+import { fetchSummary, getExophaseProfileUrl } from "../exophaseApi";
 import { settings } from "../index";
+import { ExophaseSummary } from "../types";
+
+const logger = new Logger("ExophaseAchievements");
 
 const ProfileCardClasses = findCssClassesLazy("cardsList", "firstCardContainer", "card", "container");
 const ProfileCardContainerClasses = findCssClassesLazy("innerContainer", "icons", "icon", "breadcrumb");
 const ProfileCardOverlayClasses = findCssClassesLazy("overlay");
 
+const MAX_POPOUT_BADGES = 20;
+
 interface ProfilePopoutProps {
-    userId?: string;
-    user?: User;
-    isSideBar?: boolean;
-    displayProfile?: any;
+    user: User;
 }
 
-interface Achievement {
-    id?: number | string;
-    name?: string;
-    title?: string;
-    game_title?: string;
-    description?: string;
-    icon_url?: string;
-    icon?: string;
-    url?: string;
-}
-
-interface PlatformData {
-    games_owned?: number;
-}
-
-interface SummaryData {
-    username: string;
-    stats?: {
-        total_achievements?: number;
-        total_playtime_hours?: number;
-        overall_completion_percentage?: number;
-    };
-    platforms?: PlatformData[];
-    recent_achievements?: Achievement[];
-}
-
-export function ProfilePopoutComponent({ userId, user, isSideBar = false }: ProfilePopoutProps) {
-    const [summary, setSummary] = useState<SummaryData | null>(null);
-    const [loading, setLoading] = useState(true);
+export function ProfilePopoutComponent({ user }: ProfilePopoutProps) {
+    const [summary, setSummary] = useState<ExophaseSummary | null>(null);
+    const username = settings.store.exophaseUsername;
 
     useEffect(() => {
-        const username = settings.store.exophaseUsername || "FoxStorm1";
+        if (!username) {
+            setSummary(null);
+            return;
+        }
 
-        fetch(`https://exophaseapi.vercel.app/api/v1/user/${encodeURIComponent(username)}/summary`)
-            .then(async res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
-            })
-            .then(data => {
-                setSummary(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error("[Exophase Plugin] Summary fetch error:", err);
-                setLoading(false);
-            });
-    }, [userId, user?.id]);
+        const controller = new AbortController();
+        fetchSummary(username, controller.signal).then(data => {
+            if (!data) logger.warn("No summary returned for", username, "- popout card will stay hidden.");
+            setSummary(data);
+        });
+        return () => controller.abort();
+    }, [user.id, username]);
 
-    if (loading || !summary || !summary.recent_achievements?.length) return null;
+    if (!summary?.recent_achievements?.length) return null;
 
-    const achievements = summary.recent_achievements.slice(0, 5);
-
-    // Calculate total games across all connected platforms
-    const totalGames = summary.platforms?.reduce((acc, p) => acc + (p.games_owned || 0), 0) ?? 0;
+    const achievements = summary.recent_achievements.slice(0, MAX_POPOUT_BADGES);
+    const totalGames = summary.platforms?.reduce((total, platform) => total + (platform.games_owned ?? 0), 0) ?? 0;
 
     return (
         <section className={ProfileCardClasses.container}>
             <ul className={ProfileCardClasses.cardsList} tabIndex={-1}>
                 <li className={ProfileCardClasses.firstCardContainer}>
                     <div
-                        className={classes(ProfileCardOverlayClasses.overlay, ProfileCardContainerClasses.innerContainer, ProfileCardClasses.card)}
-                        style={{ flexDirection: "column", alignItems: "flex-start", gap: 8, padding: 12 }}
+                        className={classes(
+                            ProfileCardOverlayClasses.overlay,
+                            ProfileCardContainerClasses.innerContainer,
+                            ProfileCardClasses.card,
+                            "vc-exophase-popout"
+                        )}
                     >
-                        <Paragraph size={isSideBar ? "sm" : "xs"} weight="medium">
-                            Exophase Achievements {totalGames > 0 ? `(${totalGames} Games)` : ""}
+                        <Paragraph size="xs" weight="medium">
+                            Exophase Achievements{totalGames > 0 && ` (${totalGames} Games)`}
                         </Paragraph>
 
                         <div className="vc-exophase-mini-badges">
-                            {achievements.map((item, idx) => {
-                                const achievementName = item.name || item.title || "Achievement";
-                                const gameName = item.game_title || "Game";
-                                const tooltipText = `${gameName}: ${achievementName}`;
-                                const iconUrl = item.icon_url || item.icon;
-                                const targetUrl = item.url || `https://www.exophase.com/user/${summary.username}`;
-
-                                const handleIconClick = (e: React.MouseEvent) => {
-                                    e.stopPropagation();
-                                    window.open(targetUrl, "_blank", "noopener,noreferrer");
-                                };
+                            {achievements.map((achievement, index) => {
+                                const name = achievement.name ?? achievement.title ?? "Achievement";
+                                const game = achievement.game_title ?? achievement.game ?? "Game";
+                                const icon = achievement.icon_url ?? achievement.icon;
+                                const url = achievement.url ?? achievement.link ?? getExophaseProfileUrl(summary.username);
+                                const tooltipText = `${game}: ${name}`;
 
                                 return (
-                                    <Tooltip key={item.id || idx} text={tooltipText}>
+                                    <Tooltip key={achievement.id ?? index} text={tooltipText}>
                                         {tooltipProps => (
                                             <img
                                                 {...tooltipProps}
-                                                src={iconUrl}
+                                                src={icon}
                                                 alt={tooltipText}
-                                                className="vc-exophase-mini-badge-icon"
-                                                onClick={handleIconClick}
+                                                className="vc-exophase-badge-item"
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    window.open(url, "_blank", "noopener,noreferrer");
+                                                }}
                                             />
                                         )}
                                     </Tooltip>

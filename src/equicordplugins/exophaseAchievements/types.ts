@@ -1,34 +1,54 @@
-export interface ExophaseGame {
+/*
+ * The Exophase API isn't officially documented, so several fields below are
+ * "best guess" aliases (e.g. name/title, icon/icon_url) covering the shapes
+ * that have actually been observed in responses. Every consumer should read
+ * through the small helpers in exophaseApi.ts rather than reaching into a
+ * specific field directly, so that if the API's shape changes there is only
+ * one place to fix it.
+ */
+
+export interface ExophaseAchievement {
     id?: string | number;
-    title?: string;
     name?: string;
+    title?: string;
     game_title?: string;
-    image?: string;
+    game?: string;
+    description?: string;
+    icon_url?: string;
     icon?: string;
-    thumb?: string;
-    cover?: string;
-    progress?: number;
-    completion?: number;
-    percentage?: number;
-    achievements?: number;
-    unlocked_achievements?: number;
     platform?: string;
+    rarity_percent?: number;
+    rarity?: number;
+    earned_at?: string;
+    unlocked_at?: string;
     url?: string;
     link?: string;
 }
 
-export interface ExophaseCardProps {
-    game: ExophaseGame;
+export interface ExophasePlatformSummary {
+    platform: string;
+    platform_username?: string;
+    games_owned?: number;
+}
+
+export interface ExophaseStats {
+    total_achievements?: number;
+    total_unlocked?: number;
+    total_games?: number;
+    total_playtime_hours?: number;
+    overall_completion_percentage?: number;
+}
+
+export interface ExophaseSummary {
+    username: string;
+    profile_url?: string;
+    stats?: ExophaseStats;
+    platforms?: ExophasePlatformSummary[];
+    recent_achievements?: ExophaseAchievement[];
 }
 
 export interface SubTabsProps {
     platforms: string[];
     activePlatform: string;
     onSelect: (platform: string) => void;
-}
-
-export interface IconProps {
-    className?: string;
-    width?: number;
-    height?: number;
 }
