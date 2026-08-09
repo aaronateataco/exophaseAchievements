@@ -1,15 +1,22 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { Logger } from "@utils/Logger";
-import { moment, React, Tooltip, useEffect, useMemo, useState, UserStore } from "@webpack/common";
 import { User } from "@vencord/discord-types";
+import { moment, React, Tooltip, useEffect, useMemo, UserStore,useState } from "@webpack/common";
 
 import { fetchAchievements, fetchSummary, getExophaseProfileUrl, sortByRecency } from "../exophaseApi";
 import { settings } from "../index";
-import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "../verificationCache";
 import { ExophaseAchievement, ExophaseSummary } from "../types";
+import { ensureVerificationCached, getCachedVerification, SECTION_IDS } from "../verificationCache";
 import { ExophaseCard } from "./ExophaseCard";
 import { ExophaseSubTabs } from "./ExophaseSubTabs";
 
 const logger = new Logger("ExophaseAchievements");
+const USERNAME_SETTING: "exophaseUsername"[] = ["exophaseUsername"];
 
 interface ProfileTabProps {
     user: User;
@@ -43,6 +50,7 @@ function groupByPlatformAndGame(achievements: ExophaseAchievement[]): GamesByPla
 
 export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
     const own = user.id === UserStore.getCurrentUser()?.id;
+    const { exophaseUsername } = settings.use(USERNAME_SETTING);
 
     // Own profile: use the locally configured username directly. Anyone
     // else's profile: only show achievements for an Exophase account that's
@@ -51,7 +59,7 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
     // since the plugin only injects the tab button once shouldShowExophaseTab
     // (index.tsx) has confirmed verification - but we still fall back to a
     // fresh fetch defensively.
-    const [username, setUsername] = useState<string | null>(own ? (settings.store.exophaseUsername || null) : null);
+    const [username, setUsername] = useState<string | null>(own ? (exophaseUsername || null) : null);
 
     // Always the *full*, unfiltered achievement list for this user - platform
     // filtering happens entirely client-side below (see `activeAchievements`).
@@ -70,7 +78,7 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
 
     useEffect(() => {
         if (own) {
-            setUsername(settings.store.exophaseUsername || null);
+            setUsername(exophaseUsername || null);
             return;
         }
 
@@ -86,7 +94,7 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
             setUsername(info?.verified && !info.hiddenSections.includes(SECTION_IDS.TAB) ? info.exophaseUsername : null);
         });
         return () => { cancelled = true; };
-    }, [user.id, own, settings.store.exophaseUsername]);
+    }, [user.id, own, exophaseUsername]);
 
     useEffect(() => {
         // Reset the platform filter whenever we switch to looking at a
@@ -107,7 +115,7 @@ export function ProfileTabComponent({ user, tabLabel }: ProfileTabProps) {
         setError(null);
 
         Promise.all([
-            fetchAchievements(username, undefined, controller.signal),
+            fetchAchievements(username, controller.signal),
             fetchSummary(username, controller.signal),
         ])
             .then(([achievementList, summaryData]) => {

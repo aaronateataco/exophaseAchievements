@@ -69,6 +69,9 @@ export const CspPolicies: PolicyMap = {
     "dearrow-thumb.ajay.app": ImageSrc, // Dearrow Thumbnail CDN
     "usrbg.is-hardly.online": ImageSrc, // USRBG API
     "icons.duckduckgo.com": ImageSrc, // DuckDuckGo Favicon API (Reverse Image Search)
+    "exophaseapi.vercel.app": ConnectSrc, // Exophase achievements API (ExophaseAchievements plugin)
+    "exophaseverify.vercel.app": ConnectSrc, // Exophase verification backend (ExophaseAchievements plugin)
+    "m.exophase.com": ImageSrc, // Exophase achievement icons
 
     // Tenor, used by TenorSearch plugin and some themes
     "*.tenor.com": ImageAndMediaSrc,

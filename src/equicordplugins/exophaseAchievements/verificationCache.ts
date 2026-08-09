@@ -1,3 +1,9 @@
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { Logger } from "@utils/Logger";
 
 import { fetchUserVerification, PublicUserVerification } from "./verifyApi";
@@ -62,6 +68,12 @@ export function getCachedVerification(userId: string): CachedVerification | null
         return undefined;
     }
     return verificationCache.get(userId);
+}
+
+/** Drops any cached entry, so the next read refetches. */
+export function invalidateVerification(userId: string) {
+    verificationCache.delete(userId);
+    cacheTimestamps.delete(userId);
 }
 
 /** Populates (or refreshes) the cache for a user. Safe to call repeatedly - concurrent calls share one request. */

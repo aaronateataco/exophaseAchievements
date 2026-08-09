@@ -115,7 +115,7 @@
 .vc-exophase-subtab-active,
 .vc-exophase-subtab-active:hover {
     background-color: var(--brand-500);
-    color: #ffffff;
+    color: #fff;
     border-color: var(--brand-500);
 }
 
@@ -171,7 +171,7 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--header-secondary);
-    margin: 12px 0 6px 0;
+    margin: 12px 0 6px;
     padding-bottom: 4px;
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
@@ -199,14 +199,6 @@
     gap: 8px;
 }
 
-.vc-exophase-latest-grid .vc-exophase-badge-item {
-    width: 100%;
-    height: auto;
-    max-width: none;
-    max-height: none;
-    aspect-ratio: 1;
-}
-
 .vc-exophase-badge-item {
     width: 36px;
     height: 36px;
@@ -218,6 +210,14 @@
     border: 1px solid var(--border-subtle);
     flex-shrink: 0;
     transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.vc-exophase-latest-grid .vc-exophase-badge-item {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: 1;
 }
 
 .vc-exophase-badge-item:hover {
@@ -340,7 +340,7 @@
     padding: 2px 6px;
     border-radius: 4px;
     background-color: var(--brand-500);
-    color: #ffffff;
+    color: #fff;
 }
 
 .vc-exophase-meta {
